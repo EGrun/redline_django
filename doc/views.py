@@ -10,6 +10,7 @@ from io import StringIO
 
 import doc.nlp_otr.script as script
 import doc.nlp_otr.nlp_otr as nlp
+import doc.nlp_otr.main as main
 
 
 def index(request):
@@ -31,14 +32,12 @@ def upload_doc(request):
     
     print(data_string)
     print(type(data_string))
-    print('****************************************************************************')
 
     data = StringIO(data_string)
     
     # print(data)
     # print(type(data))
-    print('****************************************************************************')
-
+    
     csv_file = pd.read_csv(data, sep=',')
 
     print(type(csv_file))
@@ -46,14 +45,15 @@ def upload_doc(request):
     
     # csv = pd.read_csv(csv_file)
     
-    
     # print(csv_file)
     
-    print(csv_file.info())
-    print(csv_file)
     # nlp_results = csv.head(2).to_dict()
     
 
     return JsonResponse({
-        'message': 'nacho'
+        'message': ''
     })
+
+def nlptest(request):
+    result = main.jsonfunc()
+    return JsonResponse({'result':result})
