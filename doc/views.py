@@ -4,6 +4,10 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 import pandas as pd
 
+
+
+from io import StringIO
+
 import doc.nlp_otr.script as script
 import doc.nlp_otr.nlp_otr as nlp
 
@@ -22,21 +26,34 @@ def upload_doc(request):
         return JsonResponse({
             'message': 'upload a file'
         })
-    csv_file = request.FILES['File']
+    data_string = str(request.body.decode('utf-8'))
+    print('****************************************************************************')
+    
+    print(data_string)
+    print(type(data_string))
+    print('****************************************************************************')
 
-    csv = pd.read_csv(csv_file)
+    data = StringIO(data_string)
+    
+    # print(data)
+    # print(type(data))
+    print('****************************************************************************')
+
+    csv_file = pd.read_csv(data, sep=',')
+
+    print(type(csv_file))
+    # csv_file = request.FILES['File']
+    
+    # csv = pd.read_csv(csv_file)
     
     
-    # nlp_results = nlp.nlp_otr(csv_file)
+    # print(csv_file)
     
-    
-    
-    print(csv.info())
-    print(csv.head(0))
-    nlp_results = csv.head(2).to_dict()
-    
+    print(csv_file.info())
+    print(csv_file)
+    # nlp_results = csv.head(2).to_dict()
     
 
     return JsonResponse({
-        'message': nlp_results
+        'message': 'nacho'
     })
