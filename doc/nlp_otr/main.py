@@ -11,7 +11,7 @@ def jsonfunc():
     
     tops = rnlp.get_top_words(truelist)
 
-
+    
     main_df = truelist.reset_index()
     main_df['top_features'] = tops
 
