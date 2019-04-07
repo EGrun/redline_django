@@ -3,6 +3,7 @@ from django.http import JsonResponse, HttpResponse
 # Create your views here.
 from django.views.decorators.csrf import csrf_exempt
 import pandas as pd
+import pickle
 
 
 
@@ -16,42 +17,41 @@ import doc.nlp_otr.main as main
 def index(request):
     return JsonResponse({'message': 'docs endpoint working'})
 
-def test(request):
-    result = script.script()
-    
-    return JsonResponse({'message': result})
-
 @csrf_exempt
 def upload_doc(request):
     if "GET" == request.method:
         return JsonResponse({
             'message': 'upload a file'
         })
-    data_string = str(request.body.decode('utf-8'))
-    print('****************************************************************************')
     
-    print(data_string)
-    print(type(data_string))
+    
+    try:
+        data_string = str(request.body.decode('utf-8'))
 
-    data = StringIO(data_string)
-    
-    # print(data)
-    # print(type(data))
-    
-    csv_file = pd.read_csv(data, sep=',')
+        data = StringIO(data_string)
+        
+        csv_file = pd.read_csv(data, sep=',')
 
-    print(type(csv_file))
-    # csv_file = request.FILES['File']
+    except:
+        print('failed to decode string')
     
-    # csv = pd.read_csv(csv_file)
+    try:
+        file = request.FILES['File']
+
+        csv_file = pd.read_csv(file)
+    except:
+        print('failed to decode file')
+        return JsonResponse({'message': 'failed to decode file'})
+
+
+    dbfile = open('pandas_df', 'ab')
+    pickle.dump(csv_file, dbfile)
+    dbfile.close()
     
-    # print(csv_file)
-    
-    # nlp_results = csv.head(2).to_dict()
     
 
     return JsonResponse({
-        'message': ''
+        'data': csv_file.head(2).to_dict()
     })
 
 def nlptest(request):
