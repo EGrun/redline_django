@@ -1,5 +1,6 @@
 import doc.nlp_otr.redline_nlp_1 as rnlp
 import pandas as pd
+import numpy as np
 
 
 
@@ -20,4 +21,4 @@ def jsonfunc():
     
 
     # main_df.to_json('json-rows.json',orient='records')
-    return main_df.iloc[2,:].to_json(orient='records')
+    return main_df.iloc[np.random.randint(0,main_df.shape[0]-1),:].to_json(orient='records')
