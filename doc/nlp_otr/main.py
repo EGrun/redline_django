@@ -20,4 +20,4 @@ def jsonfunc():
     
 
     # main_df.to_json('json-rows.json',orient='records')
-    return main_df.to_json(orient='records')
+    return main_df.iloc[2,:].to_json(orient='records')
