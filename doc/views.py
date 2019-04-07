@@ -9,9 +9,7 @@ import pickle
 
 from io import StringIO
 
-import doc.nlp_otr.script as script
-import doc.nlp_otr.nlp_otr as nlp
-import doc.nlp_otr.main as main
+import doc.nlp_otr.main_3 as main
 
 
 def index(request):
@@ -35,23 +33,23 @@ def upload_doc(request):
     except:
         print('failed to decode string')
     
-    try:
-        file = request.FILES['File']
+    # try:
+    #     file = request.FILES['File']
 
-        csv_file = pd.read_csv(file)
-    except:
-        print('failed to decode file')
-        return JsonResponse({'message': 'failed to decode file'})
+    #     csv_file = pd.read_csv(file)
+    # except:
+    #     print('failed to decode file')
+    #     return JsonResponse({'message': 'failed to decode file'})
 
 
     dbfile = open('pandas_df', 'ab')
     pickle.dump(csv_file, dbfile)
     dbfile.close()
     
-    
-
+    results = main.main()
+    print(results)
     return JsonResponse({
-        'data': csv_file.head(2).to_dict()
+        'data': results
     })
 
 def nlptest(request):
