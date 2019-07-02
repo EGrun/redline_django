@@ -1,5 +1,5 @@
 
-import pandas as pd
+import json
 import numpy as np
 import gensim
 import spacy
@@ -10,9 +10,11 @@ from gensim import corpora
 from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 from heapq import nlargest
+from time import time
 
-# import logging
-# logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+
+__docs__ = 'keyword generator. \n optional save_json flag on kg.main(), which, \n when set to True, will output the generated json as a file. \n By default, simply returns json as an object'
+
 
 def keep_token(t):
     return (t.is_alpha and (t.pos_ in ['PROPN','NOUN']) and not (t.is_space or t.is_punct or t.is_stop or t.like_num))
@@ -20,30 +22,25 @@ def keep_token(t):
 def lemmatize_doc(doc):
     return [t.lemma_ for t in doc if keep_token(t)]
 
-def prepare_docs():
+def prepare_docs(input_list):
 
     nlp = spacy.load('en_core_web_sm')
 
     token_vocab=[]
     sentences =[]
-    for file in glob.glob(os.path.join("data", '*.txt')):
-        with open(file,'r') as file_:
-            text=file_.readlines()
-            doc = nlp(text)
-            token_vocab.append(lemmatize_doc(doc))
-            sentences.append(sent.text for sent in doc.sents)
-            for sent in doc.sents:
-                sentences.append(sent.text)
+    for text in input_list:
+        doc = nlp(text.text)
+        token_vocab.append(lemmatize_doc(doc))
+        for sent in doc.sents:
+            sentences.append(sent.text)
 
-
-    #num_docs will be reused multiple times
-    num_docs = len(token_vocab)
+    num_docs = len(token_vocab) #num_docs will be reused multiple times
 
     """creating gensim dictionary and corpus for the nouns"""
     dictionary = corpora.Dictionary(token_vocab)
-    # dictionary.save('/tmp/docdict.dict')
+    # dictionary.save('/tmp/docdict.dict') #uncomment to save dict for document reanalysis
     corpus = [dictionary.doc2bow(text) for text in token_vocab]
-    # corpora.MmCorpus.serialize('/tmp/corpus.mm',corpus)
+    # corpora.MmCorpus.serialize('/tmp/corpus.mm',corpus) #uncomment to save corpus as Mmatrix
     """activating tfidf analysis on corpus"""
     tfidf = gensim.models.TfidfModel(corpus,normalize=True)
     corpus_tfidf = tfidf[corpus]
@@ -94,16 +91,6 @@ def fetch_top_words(documentnumber, model_df,n=3):
     return topwords
 
 
-def get_docnum(num_docs):
-    print('\n')
-    selection = input("which document (number 1-6) would you like to generate hashtags for? ")
-    while selection not in [str(i) for i in (range(1,num_docs+1))]:
-        print('input not recognized or out of range, please select again \n')
-        selection = input("which document (number 1-6) would you like to generate hashtags for? ")
-
-    return int(selection)
-
-
 def get_sentence_scores(tags,sentences):
     # just_tags =[]
     # for t,_ in tags:
@@ -112,7 +99,7 @@ def get_sentence_scores(tags,sentences):
     important_sentences = {word: {} for word in just_tags}
 
     for word in just_tags:
-        for sent in sentences[1:]:
+        for sent in sentences:
             #sent score will estimate the relevancy of a sentence to a keyword
             if word in sent:
                 important_sentences[word].update({sent:0})
@@ -121,43 +108,17 @@ def get_sentence_scores(tags,sentences):
             for entry,score in sentences_and_scores.items():
                 sent_score = 0
                 for w in entry.split(' '):
-                    # print(w)
                     if w in just_tags:
-                        # print(w)
                         sent_score+=1
-                        # print(sent_score)
 
                 sentences_and_scores[entry]=sent_score
     return important_sentences
 
 
-def save_data(saved_data):
-    # global saved_data
-    print('saving hashtags')
-    try:
-        outF = open('saved_hashtags.txt','a')
-    except FileNotFoundError:
-        outF = open('saved_hashtags.txt','w')
-    for index, entry in enumerate(saved_data):
-        if entry:
-            outF.write('Document number: ')
-            outF.write(str(index+1))
-            outF.write('\n')
-
-            for line in entry:
-                outF.write(str(line))
-                outF.write('\n')
-    outF.write('\n\n\n')
-    outF.close()
-
 
 
 
 def _assess_top_words(num_docs,n,model_list,sentences,outdict,docnum):
-
-    """
-    internal version of above assess_top_words method which is used by below save_csv method.
-    """
 
     model_outputs = {}
     for model_output in model_list:
@@ -170,40 +131,35 @@ def _assess_top_words(num_docs,n,model_list,sentences,outdict,docnum):
 
     tags = sorted(model_outputs.items(), key = lambda kv:(kv[1], kv[0]),reverse=True)
 
-    important_sentences = get_sentence_scores(tags,sentences)
+    # important_sentences = get_sentence_scores(tags,sentences)
+    outdict[docnum] = []
 
 
     top_tags = [t for t,_ in tags][:5]
-    for word, sentence_list in important_sentences.items():
-        if word in top_tags:
-            relevant_sentences = nlargest(10,sentence_list, key=sentence_list.get)
-            outdict[word] = []
-            for sent in relevant_sentences:
-                outdict[word].extend([sent,int(sentence_list.get(sent)) * 100,docnum])
+    for word in top_tags:
+        outdict[docnum].append(word)
 
-
-def save_df_as_json(num_docs,n,model_list,sentences,outdict):
-    """I was trying to avoid loading pandas for this script, but for outputting csvs, you can't beat it"""
+def create_outdict(num_docs,n,model_list,sentences,outdict):
 
     for docnum in range(num_docs):
         _assess_top_words(num_docs,n,model_list,sentences,outdict,docnum)
-    df = pd.DataFrame.from_dict(outdict,orient='index')
-    df.to_json('results_json.json')
 
-    return df.to_json()
 
-def main():
-    corpus_tfidf,corpus,num_docs,dictionary,sentences = prepare_docs()
+
+def _save_json(outdict):
+    filename = 'json_output_{0:.0f}.json'.format(time())
+    with open(filename,'w') as f:
+        json.dump(outdict,f)
+        f.close()
+    print('file saved at ' + filename)
+
+def main(input_list,save_json=False):
+    corpus_tfidf,corpus,num_docs,dictionary,sentences = prepare_docs(input_list)
     df_freq = turn_corpus_into_useful_array(num_docs,corpus,dictionary)
     df_tfidf=turn_corpus_into_useful_array(num_docs,corpus_tfidf,dictionary)
-    saved_data = [[] for i in range(num_docs)]
-    assess_top_words(num_docs,7,[df_freq,df_tfidf],sentences,saved_data)
-    save_data(saved_data)
     outdict = {}
-    save_df_as_csv(num_docs,7,[df_freq,df_tfidf],sentences,outdict=outdict)
-    sys.exit(0)
+    create_outdict(num_docs,7,[df_freq,df_tfidf],sentences,outdict=outdict)
+    if save_json==True:
+        _save_json(outdict)
 
-
-if __name__ == '__main__':
-    print('loading document analysis...\n')
-    main()
+    return json.dumps(outdict, skipkeys=True)
