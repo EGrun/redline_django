@@ -26,7 +26,8 @@ def prepare_docs(input_list):
 
     token_vocab=[]
     sentences =[]
-    for doc in input_list:
+    for text in input_list:
+            doc = nlp(doc.text)
             token_vocab.append(lemmatize_doc(doc))
             sentences.append(sent.text for sent in doc.sents)
 
