@@ -1,193 +1,39 @@
-import model_run as mr
-import keyword_generator_internal as kg
-
-
-testnlp = mr.main()
-
-tbt = mr.return_to_be_tagged(testnlp)
+import classification_model_v1 as cm1
+import keyword_generator_internal_v1 as kgi1
 
 
 
+"""
+runs the classification model, outputs that to the keyword generator, and outputs the keywords.
 
-import pandas as pd
-import numpy as np
-import gensim
-import spacy
-import io, os, glob, sys, re
-from spacy.lang.en import English
-from collections import defaultdict, Counter
-from gensim import corpora
-from gensim.corpora import Dictionary
-from gensim.models.tfidfmodel import TfidfModel
-from heapq import nlargest
+i/o sequence:
+the data is stored in the directory specified by 'datadir':
 
-# import logging
-# logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+for this demo, the data in question is pre-classified, and therefor there are 'train.txt' and  'labels.txt' files required by classification_model_v1.py. In the next iteration, this aspect will be removed to more closely resemble a production scenario.
 
-len(tbt)
+The documents pass through the classification model, and the test-set documents which have been labelled as being of the positive class are then outputted as 'to_be_tagged'.
 
-tbt_short = tbt[0:2]
+Because the original to_be_tagged file has about 330 entries, for demo purposes it has been reduced to the first 20. This is arbitrary.
 
-type(tbt[1].text)
-tbt[1].text
-
-def keep_token(t):
-    return (t.is_alpha and (t.pos_ in ['PROPN','NOUN']) and not (t.is_space or t.is_punct or t.is_stop or t.like_num))
-
-def lemmatize_doc(doc):
-    return [t.lemma_ for t in doc if keep_token(t)]
-
-def prepare_docs(input_list):
-
-    nlp = spacy.load('en_core_web_sm')
-
-    token_vocab=[]
-    sentences =[]
-    for text in input_list:
-        doc = nlp(text.text)
-        token_vocab.append(lemmatize_doc(doc))
-        for sent in doc.sents:
-            sentences.append(sent.text)
-            print(sent.text)
-        # sentences.append(sent.text for sent in doc.sents)
+The (shortened) to_be_tagged object is then passed to the keyword generator.
+This generator parses for nouns, and then analyzes word frequency and tf-idf scoring and naively combines the two. Heuristically, the keywords outputted by this combination have been more representative of the data than relying on tf-idf alone.
 
 
-    #num_docs will be reused multiple times
-    num_docs = len(token_vocab)
+The keywords are outputted to a json object, with format 'index number': {keyword list}.
 
-    """creating gensim dictionary and corpus for the nouns"""
-    dictionary = corpora.Dictionary(token_vocab)
-    # dictionary.save('/tmp/docdict.dict')
-    corpus = [dictionary.doc2bow(text) for text in token_vocab]
-    # corpora.MmCorpus.serialize('/tmp/corpus.mm',corpus)
-    """activating tfidf analysis on corpus"""
-    tfidf = gensim.models.TfidfModel(corpus,normalize=True)
-    corpus_tfidf = tfidf[corpus]
-
-    return corpus_tfidf,corpus,num_docs,dictionary,sentences
-
-def turn_corpus_into_useful_array(num_docs,corpus_to_use,dictionary):
-    """
-    with this method, we attach the original vocab word to either the tfidf score-entry or the frequency score-entry.
-    inputs:
-    For this demonstration:
-    for tfidf, var corpus_to_use = corpus_tfidf
-    for frequency, var corpus_to_use = corpus
-
-    num_docs = the number of documents in question, which for this demo has been predefined as num_docs
-
-    output:
-    np array with the requisite words and scores
-    """
-    result_with_vocab_base=[ [] for i in range(num_docs)]
-    for ind,doc in enumerate(corpus_to_use):
-        result_with_vocab_base[ind] = sorted(doc,key=lambda i: i[1], reverse=True)
-        #probably can eliminate this redundant step, but need to convert from native tuple to list for appending vocab text
-
-    result_with_vocab = [ [] for i in range(num_docs)]
-
-    for ind,doc in enumerate(result_with_vocab_base):
-        for entry in doc:
-            result_with_vocab[ind].append(list([*entry,dictionary[entry[0]]]))
-
-    result = np.array(result_with_vocab)
-    return result
+The optional save_json parameter will, predictably, save the generated json as a json file if save_json=True.
 
 
-def fetch_top_words(documentnumber, model_df,n=3):
-    """
-    this convenience function will:
+"""
+datadir = 'fitnessdata/'
+modeldir='.'
 
-    output the n top-scoring words for the scoring model in question.
+def main(datadir,modeldir,save_json=False):
+    testnlp = cm1.main(datadir,modeldir)
 
-    the function simply takes the values of the first three words for each document, so any sorted model output can be used.
-
-    """
-
-    topwords = []
-    for i in model_df[documentnumber][0:n]:
-        topwords.append(i[2])
-    return topwords
+    to_be_tagged = cm1.return_to_be_tagged(testnlp)
+    tbt_short = to_be_tagged[0:20]
 
 
-def get_docnum(num_docs):
-    print('\n')
-    selection = input("which document (number 1-6) would you like to generate hashtags for? ")
-    while selection not in [str(i) for i in (range(1,num_docs+1))]:
-        print('input not recognized or out of range, please select again \n')
-        selection = input("which document (number 1-6) would you like to generate hashtags for? ")
-
-    return int(selection)
-
-
-def get_sentence_scores(tags,sentences):
-    # just_tags =[]
-    # for t,_ in tags:
-    #     just_tags.append(t)
-    just_tags =[t for t,_ in tags]
-    important_sentences = {word: {} for word in just_tags}
-
-    for word in just_tags:
-        for sent in sentences:
-            #sent score will estimate the relevancy of a sentence to a keyword
-            if word in sent:
-                important_sentences[word].update({sent:0})
-
-    for word,sentences_and_scores in important_sentences.items():
-            for entry,score in sentences_and_scores.items():
-                sent_score = 0
-                for w in entry.split(' '):
-                    # print(w)
-                    if w in just_tags:
-                        # print(w)
-                        sent_score+=1
-                        # print(sent_score)
-
-                sentences_and_scores[entry]=sent_score
-    return important_sentences
-
-
-
-
-
-def _assess_top_words(num_docs,n,model_list,sentences,outdict,docnum):
-
-    model_outputs = {}
-    for model_output in model_list:
-        indv_output = fetch_top_words(docnum,model_output,n)
-        for ind, el in enumerate(indv_output):
-            if el not in model_outputs:
-                model_outputs[el] = n-ind
-            else:
-                model_outputs[el]+=(n-ind)
-
-    tags = sorted(model_outputs.items(), key = lambda kv:(kv[1], kv[0]),reverse=True)
-
-    # important_sentences = get_sentence_scores(tags,sentences)
-    outdict[docnum] = []
-
-
-    top_tags = [t for t,_ in tags][:5]
-    # print(top_tags)
-    for word in top_tags:
-        print(word, docnum)
-        outdict[docnum].append(word)
-
-def save_df_as_json(num_docs,n,model_list,sentences,outdict):
-    """I was trying to avoid loading pandas for this script, but for outputting json, you can't beat it"""
-
-    for docnum in range(num_docs):
-        _assess_top_words(num_docs,n,model_list,sentences,outdict,docnum)
-    df = pd.DataFrame.from_dict(outdict,orient='index')
-    print(df.head())
-    # df.to_csv('results_json_new.csv')
-
-    return df.to_json()
-
-
-corpus_tfidf,corpus,num_docs,dictionary,sentences = prepare_docs(tbt_short)
-df_freq = turn_corpus_into_useful_array(num_docs,corpus,dictionary)
-df_tfidf=turn_corpus_into_useful_array(num_docs,corpus_tfidf,dictionary)
-outdict = {}
-save_df_as_json(num_docs,7,[df_freq,df_tfidf],sentences,outdict=outdict)
-# sys.exit(0)
+    # kgi1.__docs__
+    return kgi1.main(tbt_short,save_json)
