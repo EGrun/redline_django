@@ -11,6 +11,6 @@ further documentation can be found in main.py
 """
 import main
 
-output=main.main(save_json=False)
+output=main.main(save_json=True)
 
 output
