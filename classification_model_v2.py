@@ -72,7 +72,7 @@ class KeywordGen(object):
         return (t.is_alpha and (t.pos_ in ['PROPN','NOUN']) and not (t.is_space or t.is_punct or t.is_stop or t.like_num))
 
     def lemmatize_doc(self,doc):
-        return [t.lemma_ for t in doc if keep_token(t)]
+        return [t.lemma_ for t in doc if self.keep_token(t)]
 
     def prepare_docs(self,input_list):
 
@@ -82,7 +82,7 @@ class KeywordGen(object):
         sentences =[]
         for text in input_list:
             doc = nlp(text.text)
-            token_vocab.append(lemmatize_doc(doc))
+            token_vocab.append(self.lemmatize_doc(doc))
             for sent in doc.sents:
                 sentences.append(sent.text)
 
@@ -96,7 +96,7 @@ class KeywordGen(object):
         """activating tfidf analysis on corpus"""
         tfidf = gensim.models.TfidfModel(corpus,normalize=True)
         corpus_tfidf = tfidf[corpus]
-
+        self.corpus_tfidf,self.corpus,self.num_docs,self.dictionary,self.sentences = corpus_tfidf,corpus,num_docs,dictionary,sentences
         return corpus_tfidf,corpus,num_docs,dictionary,sentences
 
     def turn_corpus_into_useful_array(self,num_docs,corpus_to_use,dictionary):
@@ -124,6 +124,7 @@ class KeywordGen(object):
                 result_with_vocab[ind].append(list([*entry,dictionary[entry[0]]]))
 
         result = np.array(result_with_vocab)
+
         return result
 
 
@@ -142,31 +143,29 @@ class KeywordGen(object):
             topwords.append(i[2])
         return topwords
 
-
-    def get_sentence_scores(self,tags,sentences):
-        # just_tags =[]
-        # for t,_ in tags:
-        #     just_tags.append(t)
-        just_tags =[t for t,_ in tags]
-        important_sentences = {word: {} for word in just_tags}
-
-        for word in just_tags:
-            for sent in sentences:
-                #sent score will estimate the relevancy of a sentence to a keyword
-                if word in sent:
-                    important_sentences[word].update({sent:0})
-
-        for word,sentences_and_scores in important_sentences.items():
-                for entry,score in sentences_and_scores.items():
-                    sent_score = 0
-                    for w in entry.split(' '):
-                        if w in just_tags:
-                            sent_score+=1
-
-                    sentences_and_scores[entry]=sent_score
-        return important_sentences
-
-
+    # IN DEVELOPMENT
+    # def get_sentence_scores(tags,sentences):
+    #
+    #     just_tags =[t for t,_ in tags]
+    #     important_sentences = {word: {} for word in just_tags}
+    #
+    #     for word in just_tags:
+    #         for sent in sentences:
+    #             #sent score will estimate the relevancy of a sentence to a keyword
+    #             if word in sent:
+    #                 important_sentences[word].update({sent:0})
+    #
+    #     for word,sentences_and_scores in important_sentences.items():
+    #             for entry,score in sentences_and_scores.items():
+    #                 sent_score = 0
+    #                 for w in entry.split(' '):
+    #                     if w in just_tags:
+    #                         sent_score+=1
+    #
+    #                 sentences_and_scores[entry]=sent_score
+    #     return important_sentences
+    #
+    #
 
 
 
@@ -174,7 +173,7 @@ class KeywordGen(object):
 
         model_outputs = {}
         for model_output in model_list:
-            indv_output = fetch_top_words(docnum,model_output,n)
+            indv_output = self.fetch_top_words(docnum,model_output,n)
             for ind, el in enumerate(indv_output):
                 if el not in model_outputs:
                     model_outputs[el] = n-ind
@@ -194,7 +193,7 @@ class KeywordGen(object):
     def create_outdict(self,num_docs,n,model_list,sentences,outdict):
 
         for docnum in range(num_docs):
-            _assess_top_words(num_docs,n,model_list,sentences,outdict,docnum)
+            self._assess_top_words(num_docs,n,model_list,sentences,outdict,docnum)
 
 
 
@@ -205,13 +204,18 @@ class KeywordGen(object):
             f.close()
         print('file saved at ' + filename)
 
-    def main(self,input_list,save_json=False):
-        corpus_tfidf,corpus,num_docs,dictionary,sentences = prepare_docs(input_list)
-        df_freq = turn_corpus_into_useful_array(num_docs,corpus,dictionary)
-        df_tfidf=turn_corpus_into_useful_array(num_docs,corpus_tfidf,dictionary)
-        outdict = {}
-        create_outdict(num_docs,7,[df_freq,df_tfidf],sentences,outdict=outdict)
-        if save_json==True:
-            _save_json(outdict)
+def kg_main(kg,input_list,save_json=False):
+    corpus_tfidf,corpus,num_docs,dictionary,sentences = kg.prepare_docs(input_list)
+    df_freq = kg.turn_corpus_into_useful_array(num_docs,corpus,dictionary)
+    df_tfidf=kg.turn_corpus_into_useful_array(num_docs,corpus_tfidf,dictionary)
+    outdict = {}
+    kg.create_outdict(num_docs,7,[df_freq,df_tfidf],sentences,outdict=outdict)
+    if save_json==True:
+        kg._save_json(outdict)
 
-        return json.dumps(outdict, skipkeys=True)
+    return json.dumps(outdict, skipkeys=True)
+
+
+
+kg = KeywordGen()
+kg_main(kg,tbt_short)
