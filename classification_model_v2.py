@@ -47,20 +47,6 @@ class Classifier(object):
         return to_be_tagged
 
 
-classifier = Classifier('.')
-
-classifier.encode_documents('fitnessdata')
-
-tbt=classifier.return_to_be_tagged()
-
-
-
-tbt_short = tbt[0:2]
-
-
-kg = KeywordGen()
-
-kg.main(tbt_short)
 
 class KeywordGen(object):
 
@@ -215,7 +201,17 @@ def kg_main(kg,input_list,save_json=False):
 
     return json.dumps(outdict, skipkeys=True)
 
-
-
-kg = KeywordGen()
-kg_main(kg,tbt_short)
+#
+# classifier = Classifier('.')
+#
+# classifier.encode_documents('fitnessdata')
+#
+# tbt=classifier.return_to_be_tagged()
+#
+#
+#
+# tbt_short = tbt[0:2]
+#
+#
+# kg = KeywordGen()
+# kg_main(kg,tbt_short)
