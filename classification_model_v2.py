@@ -8,17 +8,17 @@ from gensim import corpora
 from gensim.corpora import Dictionary
 from gensim.models.tfidfmodel import TfidfModel
 
-import pandas as pd
+# import pandas as pd
 import numpy as np
-import line_profiler
+# import line_profiler
 from time import time
 
 import json
 import io, os, glob, sys, re
 from spacy.lang.en import English
-from collections import defaultdict, Counter
+# from collections import defaultdict, Counter
 
-from heapq import nlargest
+# from heapq import nlargest
 
 # @profile
 class Classifier(object):
