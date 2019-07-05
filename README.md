@@ -8,10 +8,12 @@ This module now relies exclusively on SpaCy and GenSim for classification and ta
 
 
 The included mess of files are the SpaCy classifier, which has been pre-trained on the included test data.
-This means that this module _will not_ be applicaple across datasets without retraining.
+This means that this module _will not_ be applicable across datasets without retraining.
 
 
-FOR AN EXAMPLE OF HOW TO USE and MORE DOCUMENTATION ON THE PROCESS:
+
+
+##FOR AN EXAMPLE OF HOW TO USE and MORE DOCUMENTATION ON THE PROCESS:
 
 See comments in main_2.py
 
