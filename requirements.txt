@@ -8,7 +8,7 @@ idna==2.8
 imagesize==1.1.0
 Jinja2==2.10.1
 MarkupSafe==1.1.1
-nltk==3.4
+nltk==3.4.5
 numpy==1.16.2
 numpydoc==0.8.0
 packaging==19.0
